@@ -186,6 +186,20 @@ export class App implements MessageHandler {
     // castRemove, operation=merge, state=deleted (the actual remove message)
     const isCastMessage =
       isCastAddMessage(message) || isCastRemoveMessage(message);
+    // 채널 Id 조회하는 부분 추가 했습니다!!
+    const parentUrl = (message.data?.castAddBody as any)?.parentUrl ?? null;
+
+    let channelId: number | undefined;
+
+    if (parentUrl) {
+      const row = await appDB
+        .selectFrom("channels")
+        .select(["id"])
+        .where("url", "=", parentUrl.toLowerCase())
+        .executeTakeFirst();
+      channelId = row?.id;
+    }
+
     if (isCastMessage && state === "created") {
       await appDB
         .insertInto("casts")
@@ -194,6 +208,7 @@ export class App implements MessageHandler {
           hash: message.hash,
           text: message.data.castAddBody?.text || "",
           timestamp: farcasterTimeToDate(message.data.timestamp) || new Date(),
+          ...(channelId !== undefined ? { channel_id: channelId } : {}),
         })
         .execute();
     } else if (isCastMessage && state === "deleted") {
