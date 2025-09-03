@@ -200,6 +200,8 @@ export class App implements MessageHandler {
       channelId = row?.id;
     }
 
+    const parentCastId = message.data?.castAddBody?.parentCastId ?? null;
+
     if (isCastMessage && state === "created") {
       await appDB
         .insertInto("casts")
@@ -209,6 +211,9 @@ export class App implements MessageHandler {
           text: message.data.castAddBody?.text || "",
           timestamp: farcasterTimeToDate(message.data.timestamp) || new Date(),
           ...(channelId !== undefined ? { channel_id: channelId } : {}),
+          ...(parentCastId
+            ? { parent_fid: parentCastId.fid, parent_hash: parentCastId.hash }
+            : {}),
         })
         .execute();
     } else if (isCastMessage && state === "deleted") {
