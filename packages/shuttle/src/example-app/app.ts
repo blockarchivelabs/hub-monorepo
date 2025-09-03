@@ -67,7 +67,7 @@ export class App implements MessageHandler {
     dbSchema: string,
     redis: RedisClient,
     hubSubscriber: HubSubscriber,
-    streamConsumer: HubEventStreamConsumer,
+    streamConsumer: HubEventStreamConsumer
   ) {
     this.db = db;
     this.dbSchema = dbSchema;
@@ -84,7 +84,7 @@ export class App implements MessageHandler {
     hubUrl: string,
     totalShards: number,
     shardIndex: number,
-    hubSSL = false,
+    hubSSL = false
   ) {
     const db = getDbClient(dbUrl, dbSchema);
     const hub = getHubClient(hubUrl, { ssl: hubSSL });
@@ -95,16 +95,20 @@ export class App implements MessageHandler {
     const hubSubscriber = new EventStreamHubSubscriber(
       hubId,
       hub,
+      shardIndex,
       eventStreamForWrite,
       redis,
       shardKey,
       log,
-      null,
-      totalShards,
-      shardIndex,
+      undefined,
       SUBSCRIBE_RPC_TIMEOUT,
+      undefined
     );
-    const streamConsumer = new HubEventStreamConsumer(hub, eventStreamForRead, shardKey);
+    const streamConsumer = new HubEventStreamConsumer(
+      hub,
+      eventStreamForRead,
+      shardKey
+    );
 
     return new App(db, dbSchema, redis, hubSubscriber, streamConsumer);
   }
@@ -118,7 +122,9 @@ export class App implements MessageHandler {
           eventType: onChainEvent.idRegisterEventBody.eventType,
           from: bytesToHex(onChainEvent.idRegisterEventBody.from),
           to: bytesToHex(onChainEvent.idRegisterEventBody.to),
-          recoveryAddress: bytesToHex(onChainEvent.idRegisterEventBody.recoveryAddress),
+          recoveryAddress: bytesToHex(
+            onChainEvent.idRegisterEventBody.recoveryAddress
+          ),
         };
       } else if (isSignerOnChainEvent(onChainEvent)) {
         body = {
@@ -149,7 +155,9 @@ export class App implements MessageHandler {
             body: body,
           })
           .execute();
-        log.info(`Recorded OnchainEvent ${onChainEvent.type} for fid  ${onChainEvent.fid}`);
+        log.info(
+          `Recorded OnchainEvent ${onChainEvent.type} for fid  ${onChainEvent.fid}`
+        );
       } catch (e) {
         log.error("Failed to insert onchain event", e);
       }
@@ -163,7 +171,7 @@ export class App implements MessageHandler {
     operation: StoreMessageOperation,
     state: MessageState,
     isNew: boolean,
-    wasMissed: boolean,
+    wasMissed: boolean
   ): Promise<void> {
     if (!isNew) {
       // Message was already in the db, no-op
@@ -176,7 +184,8 @@ export class App implements MessageHandler {
     // Note that since we're relying on "state", this can sometimes be invoked twice. e.g. when a CastRemove is merged, this call will be invoked 2 twice:
     // castAdd, operation=delete, state=deleted (the cast that the remove is removing)
     // castRemove, operation=merge, state=deleted (the actual remove message)
-    const isCastMessage = isCastAddMessage(message) || isCastRemoveMessage(message);
+    const isCastMessage =
+      isCastAddMessage(message) || isCastRemoveMessage(message);
     if (isCastMessage && state === "created") {
       await appDB
         .insertInto("casts")
@@ -190,13 +199,21 @@ export class App implements MessageHandler {
     } else if (isCastMessage && state === "deleted") {
       await appDB
         .updateTable("casts")
-        .set({ deletedAt: farcasterTimeToDate(message.data.timestamp) || new Date() })
+        .set({
+          deletedAt: farcasterTimeToDate(message.data.timestamp) || new Date(),
+        })
         .where("hash", "=", message.hash)
         .execute();
     }
 
-    const messageDesc = wasMissed ? `missed message (${operation})` : `message (${operation})`;
-    log.info(`${state} ${messageDesc} ${bytesToHexString(message.hash)._unsafeUnwrap()} (type ${message.data?.type})`);
+    const messageDesc = wasMissed
+      ? `missed message (${operation})`
+      : `message (${operation})`;
+    log.info(
+      `${state} ${messageDesc} ${bytesToHexString(
+        message.hash
+      )._unsafeUnwrap()} (type ${message.data?.type})`
+    );
   }
 
   async start() {
@@ -223,24 +240,40 @@ export class App implements MessageHandler {
       this.db,
       log,
       undefined,
-      USE_STREAMING_RPCS_FOR_BACKFILL,
+      USE_STREAMING_RPCS_FOR_BACKFILL
     );
     for (const fid of fids) {
       await reconciler.reconcileMessagesForFid(
         fid,
         async (message, missingInDb, prunedInDb, revokedInDb) => {
           if (missingInDb) {
-            await HubEventProcessor.handleMissingMessage(this.db, message, this);
+            await HubEventProcessor.handleMissingMessage(
+              this.db,
+              message,
+              this
+            );
           } else if (prunedInDb || revokedInDb) {
-            const messageDesc = prunedInDb ? "pruned" : revokedInDb ? "revoked" : "existing";
-            log.info(`Reconciled ${messageDesc} message ${bytesToHexString(message.hash)._unsafeUnwrap()}`);
+            const messageDesc = prunedInDb
+              ? "pruned"
+              : revokedInDb
+              ? "revoked"
+              : "existing";
+            log.info(
+              `Reconciled ${messageDesc} message ${bytesToHexString(
+                message.hash
+              )._unsafeUnwrap()}`
+            );
           }
         },
         async (message, missingInHub) => {
           if (missingInHub) {
-            log.info(`Message ${bytesToHexString(message.hash)._unsafeUnwrap()} is missing in the hub`);
+            log.info(
+              `Message ${bytesToHexString(
+                message.hash
+              )._unsafeUnwrap()} is missing in the hub`
+            );
           }
-        },
+        }
       );
     }
   }
@@ -250,7 +283,9 @@ export class App implements MessageHandler {
     if (fids.length === 0) {
       let maxFid = MAX_FID ? parseInt(MAX_FID) : undefined;
       if (!maxFid) {
-        const getInfoResult = await this.hubSubscriber.hubClient?.getInfo(HubInfoRequest.create({}));
+        const getInfoResult = await this.hubSubscriber.hubClient?.getInfo(
+          HubInfoRequest.create({})
+        );
         if (getInfoResult?.isErr()) {
           log.error("Failed to get max fid", getInfoResult.error);
           throw getInfoResult.error;
@@ -265,7 +300,10 @@ export class App implements MessageHandler {
       log.info(`Queuing up fids upto: ${maxFid}`);
       // create an array of arrays in batches of 100 upto maxFid
       const batchSize = 10;
-      const fids = Array.from({ length: Math.ceil(maxFid / batchSize) }, (_, i) => i * batchSize).map((fid) => fid + 1);
+      const fids = Array.from(
+        { length: Math.ceil(maxFid / batchSize) },
+        (_, i) => i * batchSize
+      ).map((fid) => fid + 1);
       for (const start of fids) {
         const subset = Array.from({ length: batchSize }, (_, i) => start + i);
         await backfillQueue.add("reconcile", { fids: subset });
@@ -297,18 +335,42 @@ export class App implements MessageHandler {
 }
 
 //If the module is being run directly, start the shuttle
-if (import.meta.url.endsWith(url.pathToFileURL(process.argv[1] || "").toString())) {
+if (
+  import.meta.url.endsWith(url.pathToFileURL(process.argv[1] || "").toString())
+) {
   async function start() {
-    log.info(`Creating app connecting to: ${POSTGRES_URL}, ${REDIS_URL}, ${HUB_HOST}`);
-    const app = App.create(POSTGRES_URL, POSTGRES_SCHEMA, REDIS_URL, HUB_HOST, TOTAL_SHARDS, SHARD_INDEX, HUB_SSL);
+    log.info(
+      `Creating app connecting to: ${POSTGRES_URL}, ${REDIS_URL}, ${HUB_HOST}`
+    );
+    const app = App.create(
+      POSTGRES_URL,
+      POSTGRES_SCHEMA,
+      REDIS_URL,
+      HUB_HOST,
+      TOTAL_SHARDS,
+      SHARD_INDEX,
+      HUB_SSL
+    );
     log.info("Starting shuttle");
     await app.start();
   }
 
   async function backfill() {
-    log.info(`Creating app connecting to: ${POSTGRES_URL}, ${REDIS_URL}, ${HUB_HOST}`);
-    const app = App.create(POSTGRES_URL, POSTGRES_SCHEMA, REDIS_URL, HUB_HOST, TOTAL_SHARDS, SHARD_INDEX, HUB_SSL);
-    const fids = BACKFILL_FIDS ? BACKFILL_FIDS.split(",").map((fid) => parseInt(fid)) : [];
+    log.info(
+      `Creating app connecting to: ${POSTGRES_URL}, ${REDIS_URL}, ${HUB_HOST}`
+    );
+    const app = App.create(
+      POSTGRES_URL,
+      POSTGRES_SCHEMA,
+      REDIS_URL,
+      HUB_HOST,
+      TOTAL_SHARDS,
+      SHARD_INDEX,
+      HUB_SSL
+    );
+    const fids = BACKFILL_FIDS
+      ? BACKFILL_FIDS.split(",").map((fid) => parseInt(fid))
+      : [];
     log.info(`Backfilling fids: ${fids}`);
     const backfillQueue = getQueue(app.redis.client);
     await app.backfillFids(fids, backfillQueue);
@@ -320,8 +382,18 @@ if (import.meta.url.endsWith(url.pathToFileURL(process.argv[1] || "").toString()
   }
 
   async function worker() {
-    log.info(`Starting worker connecting to: ${POSTGRES_URL}, ${REDIS_URL}, ${HUB_HOST}`);
-    const app = App.create(POSTGRES_URL, POSTGRES_SCHEMA, REDIS_URL, HUB_HOST, TOTAL_SHARDS, SHARD_INDEX, HUB_SSL);
+    log.info(
+      `Starting worker connecting to: ${POSTGRES_URL}, ${REDIS_URL}, ${HUB_HOST}`
+    );
+    const app = App.create(
+      POSTGRES_URL,
+      POSTGRES_SCHEMA,
+      REDIS_URL,
+      HUB_HOST,
+      TOTAL_SHARDS,
+      SHARD_INDEX,
+      HUB_SSL
+    );
     const worker = getWorker(app, app.redis.client, log, CONCURRENCY);
     await worker.run();
   }
@@ -345,8 +417,14 @@ if (import.meta.url.endsWith(url.pathToFileURL(process.argv[1] || "").toString()
     .version(JSON.parse(readFileSync("./package.json").toString()).version);
 
   program.command("start").description("Starts the shuttle").action(start);
-  program.command("backfill").description("Queue up backfill for the worker").action(backfill);
-  program.command("worker").description("Starts the backfill worker").action(worker);
+  program
+    .command("backfill")
+    .description("Queue up backfill for the worker")
+    .action(backfill);
+  program
+    .command("worker")
+    .description("Starts the backfill worker")
+    .action(worker);
 
   program.parse(process.argv);
 }
