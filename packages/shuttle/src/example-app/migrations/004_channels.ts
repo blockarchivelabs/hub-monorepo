@@ -6,7 +6,7 @@ export const up = async (db: Kysely<any>) => {
     .createTable("channels")
     .addColumn("id", "bigserial", (col) => col.primaryKey())
     .addColumn("slug", "text", (col) => col.notNull()) // API의 id (예: "elitez")
-    .addColumn("url", "text", (col) => col.notNull()) // 고유 URL
+    .addColumn("url", "text", (col) => col.notNull().unique()) // ✅ 고유 URL
     .addColumn("name", "text")
     .addColumn("description", "text")
     .addColumn("image_url", "text")
@@ -24,5 +24,18 @@ export const up = async (db: Kysely<any>) => {
       col.notNull().defaultTo(sql`now()`)
     ) // 레코드 갱신 시각(DB)
     .addColumn("last_seen_at", "timestamptz") // 동기화 시 마지막 확인 시각
+    .execute();
+
+  await db.schema
+    .createIndex("channels_url_idx")
+    .on("channels")
+    .column("url")
+    .unique()
+    .execute();
+
+  await db.schema
+    .createIndex("channels_slug_idx")
+    .on("channels")
+    .column("slug")
     .execute();
 };
