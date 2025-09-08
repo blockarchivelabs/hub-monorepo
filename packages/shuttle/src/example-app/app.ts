@@ -232,7 +232,11 @@ export class App implements MessageHandler {
     log.info(
       `${state} ${messageDesc} ${bytesToHexString(
         message.hash
-      )._unsafeUnwrap()} (type ${message.data?.type})`
+      )._unsafeUnwrap()} (fid : ${
+        message.data?.fid
+      }) (channel : ${parentUrl}) (parent : ${parentCastId}) (timestamp :${
+        message.data?.timestamp
+      }) (type ${message.data?.type})`
     );
   }
 
