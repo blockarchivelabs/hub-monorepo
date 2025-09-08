@@ -225,18 +225,18 @@ export class App implements MessageHandler {
         .where("hash", "=", message.hash)
         .execute();
     }
-
     const messageDesc = wasMissed
       ? `missed message (${operation})`
       : `message (${operation})`;
+    const date = message.data
+      ? farcasterTimeToDate(message.data.timestamp)
+      : null;
     log.info(
-      `${state} ${messageDesc} ${bytesToHexString(
-        message.hash
-      )._unsafeUnwrap()} (fid : ${
+      `${state} ${messageDesc} (fid: ${
         message.data?.fid
-      }) (channel : ${parentUrl}) (parent : ${parentCastId}) (timestamp :${
-        message.data?.timestamp
-      }) (type ${message.data?.type})`
+      }) (date: ${date?.toISOString() ?? "N/A"}) (type: ${
+        message.data?.type
+      }) (channel: ${parentUrl}) (parentFid: ${parentCastId?.fid})`
     );
   }
 
