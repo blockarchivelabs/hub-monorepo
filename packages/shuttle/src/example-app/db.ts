@@ -1,4 +1,12 @@
-import { ColumnType, FileMigrationProvider, Generated, GeneratedAlways, Kysely, MigrationInfo, Migrator } from "kysely";
+import {
+  ColumnType,
+  FileMigrationProvider,
+  Generated,
+  GeneratedAlways,
+  Kysely,
+  MigrationInfo,
+  Migrator,
+} from "kysely";
 import { Logger } from "./log";
 import { err, ok, Result } from "neverthrow";
 import path from "path";
@@ -7,7 +15,11 @@ import { fileURLToPath } from "node:url";
 import { HubTables } from "@farcaster/hub-shuttle";
 import { Fid } from "../shuttle";
 
-const createMigrator = async (db: Kysely<HubTables>, dbSchema: string, log: Logger) => {
+const createMigrator = async (
+  db: Kysely<HubTables>,
+  dbSchema: string,
+  log: Logger
+) => {
   const currentDir = path.dirname(fileURLToPath(import.meta.url));
   const migrator = new Migrator({
     db,
@@ -25,7 +37,7 @@ const createMigrator = async (db: Kysely<HubTables>, dbSchema: string, log: Logg
 export const migrateToLatest = async (
   db: Kysely<HubTables>,
   dbSchema: string,
-  log: Logger,
+  log: Logger
 ): Promise<Result<void, unknown>> => {
   const migrator = await createMigrator(db, dbSchema, log);
 
@@ -58,6 +70,7 @@ export type CastRow = {
   fid: Fid;
   hash: Uint8Array;
   text: string;
+  channel_id: number | null; 
 };
 
 export type OnChainEventRow = {
@@ -72,10 +85,16 @@ export type OnChainEventRow = {
   txHash: Uint8Array;
   body: Record<string, string | number>;
 };
-
+export type ChannelRow = {
+  id: Generated<number>;
+  slug: string;
+  url: string;
+  name: string | null;
+};
 export interface Tables extends HubTables {
   casts: CastRow;
   onchain_events: OnChainEventRow;
+  channels: ChannelRow;
 }
 
 export type AppDb = Kysely<Tables>;

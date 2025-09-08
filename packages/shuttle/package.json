@@ -28,7 +28,8 @@
     "pino": "^8.12.1",
     "pino-pretty": "^10.0.0",
     "sql-formatter": "^13.0.0",
-    "tiny-typed-emitter": "^2.1.0"
+    "tiny-typed-emitter": "^2.1.0",
+    "tsx": "^4.20.5"
   },
   "scripts": {
     "build": "tsup --config tsup.config.ts",
@@ -43,9 +44,9 @@
   "devDependencies": {
     "@commander-js/extra-typings": "11.0.0",
     "@types/humanize-duration": "^3.27.1",
+    "@types/node": "^20.11.30",
     "@types/pg": "^8.10.3",
     "@types/pg-cursor": "^2.7.0",
-    "@types/node": "^20.11.30",
     "biome-config-custom": "*",
     "bullmq": "^5.7.1",
     "prettier-config-custom": "*"
